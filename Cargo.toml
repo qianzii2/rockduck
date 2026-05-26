@@ -1,0 +1,94 @@
+[package]
+name = "rockduck"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.91"
+license = "Apache-2.0"
+description = "HTAP embedded database: transactional DeltaStore + columnar Vortex storage + DuckDB SQL engine"
+repository = "https://github.com/YOUR_GITHUB/rockduck"
+keywords = ["htap", "database", "embedded", "columnar", "duckdb", "oltp", "olap"]
+categories = ["database", "embedded", "data-structures"]
+readme = "README.md"
+
+[features]
+async = ["lazyflow"]
+
+[dependencies]
+
+# 存储引擎 (rocksdb 绑定)
+rocksdb = "0.24"
+
+# 列式存储
+arrow = { version = "58.2", features = ["ipc_compression"] }
+arrow-array = "58.2"
+arrow-schema = "58.2"
+arrow-ipc = "58.2"
+arrow-select = "58.2"
+arrow-arith = "58.2"
+
+# Parquet (与 Arrow 58.x 对齐)
+parquet = { version = "58.2", features = ["arrow"] }
+
+# 查询引擎
+duckdb = { version = "~1.10503.1", features = ["bundled", "vtab-arrow"] }
+
+# Vortex 列存格式 (纯 Rust)
+vortex-array = "0.70"
+vortex-buffer = "0.70"
+vortex-io = "0.70"
+vortex-file = "0.72"
+
+# Vortex 编码扩展
+vortex-alp = "0.70"
+vortex-zigzag = "0.70"
+vortex-fastlanes = "0.70"
+
+# 压缩/编解码
+roaring = "0.11"
+bitpacking = "0.9"
+newpfd = "0.9"
+
+rayon = "1.10"
+# 高性能库
+bincode-next = { version = "3.0.0-rc.15", default-features = false, features = ["std", "serde", "derive"] }  # 二进制序列化，性能 10x+
+clap = { version = "4.6", features = ["derive"] }  # CLI 解析
+derive_builder = "0.20"         # Builder 模式自动生成
+chrono = { version = "0.4", features = ["serde"] }  # 时间处理
+quickbloom = "0.2"              # 高性能 Bloom Filter
+lazyflow = { version = "0.8", optional = true }   # 异步批处理流水线 (需要 feature=async)
+typed-arrow = { version = "0.7", default-features = false, features = ["arrow-58", "derive", "views"] }  # Arrow 类型转换
+strum = { version = "0.26", features = ["derive"] }  # Enum 工具
+
+# 异步运行时
+tokio = { version = "1.52", features = ["full"] }
+
+# 序列化
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# 工具库
+parking_lot = "0.12"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+memmap2 = "0.9"
+crc32fast = "1.4"
+thiserror = "1"
+anyhow = "1"
+once_cell = "1"
+uuid = { version = "1", features = ["v4"] }
+hex = "0.4"
+num_cpus = "1"
+
+# Avro schema encoding for Iceberg manifests
+avro-rs = "0.13"
+lazy_static = "1.4"
+windows-sys = { version = "0.59", features = ["Win32_Storage_FileSystem"] }
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3"
+rand = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = true
