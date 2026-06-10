@@ -322,25 +322,27 @@ stateDiagram-v2
 ### VisibilityManager 职责
 
 ```mermaid
-mindmap
-    root((VisibilityManager))
-        事务管理
-            begin_txn
-            commit_txn
-            rollback_txn
-            SSI 冲突检测
-        可见性判断
-            is_row_visible 实现 VisFilter
-            Rule 1-4
-            commit_ts_map 查找
-        状态 GC
-            prune_history
-            TTL eviction
-            数量 eviction
-            replay_watermark 下限
-        恢复重建
-            recover_committed_history
-            recover_active_txns
+flowchart TD
+    VM["VisibilityManager"]
+
+    VM --> TXN["事务管理"]
+    TXN --> T1["begin_txn / commit_txn / rollback_txn"]
+    TXN --> T2["SSI 冲突检测"]
+
+    VM --> VIS["可见性判断"]
+    VIS --> V1["is_row_visible 实现 VisFilter"]
+    VIS --> V2["Rule 1-4"]
+    VIS --> V3["commit_ts_map 查找"]
+
+    VM --> GC["状态 GC"]
+    GC --> G1["prune_history"]
+    GC --> G2["TTL eviction"]
+    GC --> G3["数量 eviction"]
+    GC --> G4["replay_watermark 下限"]
+
+    VM --> REC["恢复重建"]
+    REC --> R1["recover_committed_history"]
+    REC --> R2["recover_active_txns"]
 ```
 
 ### TxnSnapshot 结构
@@ -938,24 +940,26 @@ flowchart TB
     PANIC --> E["断言失败"]
 ```
 
-### Governance 层 mindmap
+### Governance 层
 
 ```mermaid
-mindmap
-    root((Governance))
-        ProjectionContract
-            assert_blocking_governance
-            EvidenceSnapshot
-            SidecarEvidenceSnapshot
-        Cross-Cutting
-            query routing mod.rs
-            query vtab_quack.rs
-            metadata projection.rs
-        Evidence Hook
-            硬编码字符串
-            非运行时验证
-            Hint layer 非强制
-```
+flowchart TD
+    GOV["Governance"]
+
+    GOV --> PC["ProjectionContract"]
+    PC --> PC1["assert_blocking_governance"]
+    PC --> PC2["EvidenceSnapshot"]
+    PC --> PC3["SidecarEvidenceSnapshot"]
+
+    GOV --> CX["Cross-Cutting"]
+    CX --> C1["query routing mod.rs"]
+    CX --> C2["query vtab_quack.rs"]
+    CX --> C3["metadata projection.rs"]
+
+    GOV --> EH["Evidence Hook"]
+    EH --> E1["硬编码字符串"]
+    EH --> E2["非运行时验证"]
+    EH --> E3["Hint layer 非强制"]
 
 ---
 
