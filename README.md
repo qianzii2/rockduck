@@ -897,7 +897,7 @@ flowchart TD
     EH --> E1["hard-coded string"]
     EH --> E2["non-runtime validation"]
     EH --> E3["hint layer, non-blocking"]
-
+```
 ---
 
 ## 模块依赖全景
