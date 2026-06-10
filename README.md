@@ -490,7 +490,8 @@ flowchart TB
     K["BloomFilter 不清理<br/>false positive 风险"]
     A --> B --> C --> D --> E --> F
     F -->|yes| G
-    F -->|no| H --> I
+    F -->|no| H
+    H --> I
     H --> J
     J --> K
 ```
@@ -608,19 +609,19 @@ stateDiagram-v2
 ```mermaid
 flowchart TD
     START["scan or point_get"]
-    T1{"PointGet 查询"}
-    T1 -->|yes| R1["DeltaStoreOnly 规则"]
-    T1 -->|no| T2["Tier2 评估统计信息<br/>ZoneMap 裁剪率<br/>Delta 行数 vs Vortex 行数"]
-    T2 --> DECIDE2{"成本比较"}
-    DECIDE2 -->|Delta 远小于 Vortex| R2A["DeltaStoreOnly"]
-    DECIDE2 -->|Vortex 远小于 Delta| R2B["VortexOnly"]
-    DECIDE2 -->|成本接近| R2C["Merge"]
-    R1 --> END["执行查询"]
+    T1{"PointGet"}
+    T1 -->|yes| R1["DeltaStoreOnly"]
+    T1 -->|no| T2["Tier2 stats<br/>ZoneMap prune<br/>Delta vs Vortex rows"]
+    T2 --> DECIDE2{"cost comparison"}
+    DECIDE2 -->|"Delta << Vortex"| R2A["DeltaStoreOnly"]
+    DECIDE2 -->|"Vortex << Delta"| R2B["VortexOnly"]
+    DECIDE2 -->|"cost similar"| R2C["Merge"]
+    R1 --> END["execute query"]
     R2A --> END
     R2B --> END
     R2C --> END
-    T2 --> T3["Tier3 Tree-CNN ML<br/>影子模式 记录预测"]
-    T3 -->|"不参与路由"| END
+    T2 --> T3["Tier3 Tree-CNN ML<br/>shadow mode"]
+    T3 -->|"not in routing"| END
 ```
 
 ### QueryRouter 类图
@@ -660,19 +661,19 @@ classDiagram
 ```mermaid
 flowchart TB
     A["ScanIterator new"]
-    B["execution_template 规划"]
+    B["execution_template planning"]
     C{"RouteDecision"}
-    C -->|"Merge"| D["并发读取<br/>DeltaQueryLayer + VortexReader"]
-    C -->|"DeltaStoreOnly"| E["仅 DeltaQueryLayer"]
-    C -->|"VortexOnly"| F["仅 VortexReader"]
+    C -->|"Merge"| D["concurrent read<br/>DeltaQueryLayer + VortexReader"]
+    C -->|"DeltaStoreOnly"| E["DeltaQueryLayer only"]
+    C -->|"VortexOnly"| F["VortexReader only"]
     D --> G["k_way_merge apply_deltas_to_batch"]
     E --> G
     F --> G
     G --> H["VisFilter is_row_visible TxnSnapshot"]
     H --> I["Rule 1-4"]
     I --> J{"visible"}
-    J -->|yes| K["collect 行"]
-    J -->|no| L["skip 行"]
+    J -->|yes| K["collect rows"]
+    J -->|no| L["skip rows"]
     K --> M["cooperative merge 时间片"]
     L --> M
     M --> M
@@ -812,11 +813,12 @@ flowchart TB
     WARN["log warning<br/>at-least-once 降级"]
     START --> P --> E
     E -->|false| SKIP
-    E -->|true| PUSH --> FULL
+    E -->|true| PUSH
+    PUSH --> FULL
     FULL -->|yes| ERR
     FULL -->|no| CWAL
-    CWAL -->|"成功"| DONE
-    CWAL -->|"失败"| WARN
+    CWAL -->|"success"| DONE
+    CWAL -->|"failed"| WARN
     WARN --> DONE
 ```
 
@@ -873,7 +875,8 @@ flowchart TB
     B --> C
     C --> D
     D -->|yes| PANIC
-    D -->|no| CONTINUE --> Q
+    D -->|no| CONTINUE
+    CONTINUE --> Q
     PANIC --> E["断言失败"]
 ```
 
