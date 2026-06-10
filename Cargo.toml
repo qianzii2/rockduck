@@ -1,0 +1,170 @@
+[package]
+name = "rockduck"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+description = "HTAP embedded database: transactional DeltaStore + columnar Vortex storage + DuckDB SQL engine"
+repository = "https://github.com/qianzii2/rockduck"
+keywords = ["htap", "database", "embedded", "duckdb", "olap"]
+categories = ["database", "embedded", "data-structures"]
+readme = "README.md"
+
+[features]
+kafka = ["rdkafka"]
+flight = ["arrow-flight"]
+genswap = ["dep:genswap"]
+synchro = []
+granule = []
+# PR 9 fix (ICE-1/2/3/4): Iceberg export is disabled by default.
+# Iceberg spec violations found (Vortex files labeled as Parquet, empty manifests, hardcoded seq numbers).
+# Enable only when Iceberg compliance is ready.
+iceberg_export = ["dep:iceberg", "dep:parquet"]
+
+[dependencies]
+# KV engine (native Rust, ACID+MVCC, flash-optimized)
+mace-kv = "0.0.32"
+
+# WAL durability — replaces custom wal.rs and okay_wal.rs (v0.6.4, MSRV 1.80)
+durability = "0.6"
+
+# Columnar storage
+arrow = { version = "=58.3.0", features = ["ipc_compression"] }
+arrow-array = "=58.3.0"
+arrow-buffer = "=58.3.0"
+arrow-schema = { version = "=58.3.0", features = ["serde"] }
+arrow-ipc = "=58.3.0"
+bytes = "1"
+arrow-select = "=58.3.0"
+arrow-arith = "=58.3.0"
+arrow-string = "=58.3.0"
+arrow-cast = "=58.3.0"
+
+# Query engine
+# Note: DuckDB uses date-based versioning (1.10.503.1 = Oct 5, 2023).
+# Version 1.5 is not yet available on crates.io.
+duckdb = { version = "~1.10503.1", features = ["bundled", "vtab-arrow"] }
+
+parquet = { version = "58.0", optional = true, default-features = false, features = ["arrow"] }
+
+# Vortex columnar format (v0.73)
+vortex = "0.73"
+vortex-array = "0.73"
+vortex-buffer = { version = "0.73", features = ["memmap2"] }
+vortex-io = "0.73"
+vortex-file = "0.73"
+vortex-ipc = "0.73"
+vortex-error = "0.73"
+vortex-session = "0.73"
+vortex-layout = "0.73"
+
+# Vortex encoding extensions
+vortex-alp = "0.73"
+vortex-zigzag = "0.73"
+vortex-fastlanes = "0.73"
+
+# Vortex BtrBlocks — adaptive block-level encoding (SIGMOD 2023)
+vortex-btrblocks = "0.73"
+
+# Async runtime for Vortex file writes
+smol = "2.0"
+
+# Compression/encoding
+croaring = "2.6"
+bitvec = "1"
+bitpacking = "0.9"
+newpfd = "0.9"
+
+rayon = "1.12"
+
+# High-performance read-mostly snapshots
+# arc-swap: always included — RCU-based lock-free reads (3ns)
+# genswap: optional — generation-tracked cache (0.4ns on cache hit)
+# See: <https://docs.rs/arc-swap> and <https://github.com/temporalxyz/genswap>
+genswap = { version = "0.1", optional = true }
+arc-swap = "1.9"
+# Zero-copy serialization — rkyv with features for mmap metadata + bytecheck
+rkyv = { version = "0.8", features = ["std", "alloc", "bytecheck"] }
+rkyv_derive = "0.8"
+# Binary serialization — postcard (bincode is deprecated/unmaintained)
+postcard = { version = "1.0", features = ["alloc"] }
+clap = { version = "4.6", features = ["derive"] }
+typed-arrow = { version = "0.7", default-features = false, features = ["arrow-58", "derive", "views"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Utilities
+parking_lot = "0.12"
+bitflags = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+memmap2 = "0.9"
+
+# High-performance concurrent HashMap (FxHashMap replaces std::collections::HashMap)
+rustc-hash = "2"
+# Ordered map with insertion-order iteration — used by WriteHeatTracker for LRU eviction
+indexmap = "1.4"
+# Zero-cost ordered float — guarantees f64 is not NaN, implements Ord+Eq
+ordered-float = "4"
+
+thiserror = "1"
+anyhow = "1"
+num_cpus = "1"
+
+# Cache for bounded mmap/meta caches
+moka = { version = "0.12", features = ["sync"] }
+
+# For fsync on Unix
+libc = "0.2"
+
+# Bloom filter — fastbloom with serde persistence + AtomicBF (supports &[u8] hashing)
+fastbloom = { version = "0.17", features = ["serde"] }
+
+# Binary serialization — bincode 1.x (stable API, serde-native)
+bincode = "1.3"
+
+# CRC32 checksum for file integrity validation
+crc32fast = "1.5"
+
+# SIMD-accelerated min/max — removed (incompatible with arrow-array 58).
+# block_stats.rs uses arrow_arith::aggregate::min/max instead (stable, no deps).
+
+# xxHash — fast hash function for Bloom filter (xxh64)
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
+# Secure path handling for vTab (prevents path traversal attacks)
+strict-path = "0.2"
+
+uuid = { version = "1", features = ["v7"] }
+lazy_static = "1.4"
+windows = { version = "0.59", features = ["Win32_Storage_FileSystem", "Win32_Security"] }
+windows-sys = { version = "0.59", features = ["Win32_Storage_FileSystem"] }
+
+# Apache Iceberg — official Rust implementation (replaces hand-written avro_writer.rs)
+# PR 9 fix (ICE-1/2/3/4): Iceberg spec violations (Vortex as Parquet, empty manifests, hardcoded seq numbers).
+# This crate is optional and disabled by default. Enable via `iceberg_export` feature.
+iceberg = { version = "0.8", optional = true, default-features = false, features = ["storage-fs"] }
+
+# Memory-mapped file I/O — zero-copy reads with chunked iteration
+mmap-io = "1.0"
+
+
+# Optional CDC sinks
+rdkafka = { version = "0.36", features = ["cmake-build"], optional = true }
+arrow-flight = { version = "58.3", optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3"
+rand = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+
+[[bench]]
+name = "vis_deltavis"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = true
