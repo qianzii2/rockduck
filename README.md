@@ -118,16 +118,12 @@ sequenceDiagram
     participant KV as KV Engine
     participant CDC as CDC Log Buffer
     participant DELTA as DeltaLayerStack
-
     C->>DB: commit_txn(txn_id)
-
     DB->>INS: write_column_data_final()
     INS->>VIS: append_batch to vis vortex
     INS-->>DB: data files written
-
     DB->>WAL: append_durable OpType::Commit
     Note over WAL: WAL flush 完成后数据已持久化
-
     DB->>MVCC: commit_txn(txn_id)
     DB->>KV: put_committed_txn()
     DB->>CDC: push CDC entry
@@ -148,11 +144,9 @@ sequenceDiagram
     participant VIS as VisFilter
     participant VORTEX as VortexReader
     participant SNAP as TxnSnapshot
-
     C->>ROUTE: scan predicate
     ROUTE->>ROUTE: Tier1 规则 / Tier2 成本 / Tier3 ML
     ROUTE-->>C: RouteDecision
-
     alt DeltaStoreOnly
         SCAN->>DELTA: query_all_layers
         DELTA->>MERGE: k_way_merge L1 L2 L3
@@ -165,7 +159,6 @@ sequenceDiagram
         SCAN->>VORTEX: read base columns
         MERGE->>MERGE: apply_deltas_to_batch
     end
-
     SCAN->>SNAP: is_row_visible
     SCAN-->>C: RecordBatch
 ```
@@ -193,7 +186,6 @@ flowchart TB
     L["VisibilityManager recover_active_txns"]
     M{"系统就绪"}
     N["接收读写请求"]
-
     A --> B --> C --> D
     D --> E
     D --> F
@@ -255,7 +247,6 @@ flowchart TB
     F["6. OpType::Checkpoint<br/>写入 WAL + flush"]
     G["7. WAL truncate_prefix<br/>删除 Checkpoint 前条目"]
     H["Crash-Safe"]
-
     A --> B --> C --> D --> E --> F --> G --> H
 ```
 
@@ -300,7 +291,6 @@ graph LR
         S4["VTab"]
         S5["Compaction"]
     end
-
     R1 --> Surfaces
     R2 --> Surfaces
     R3 --> Surfaces
@@ -324,22 +314,18 @@ stateDiagram-v2
 ```mermaid
 flowchart TD
     VM["VisibilityManager"]
-
     VM --> TXN["事务管理"]
     TXN --> T1["begin_txn / commit_txn / rollback_txn"]
     TXN --> T2["SSI 冲突检测"]
-
     VM --> VIS["可见性判断"]
     VIS --> V1["is_row_visible 实现 VisFilter"]
     VIS --> V2["Rule 1-4"]
     VIS --> V3["commit_ts_map 查找"]
-
     VM --> GC["状态 GC"]
     GC --> G1["prune_history"]
     GC --> G2["TTL eviction"]
     GC --> G3["数量 eviction"]
     GC --> G4["replay_watermark 下限"]
-
     VM --> REC["恢复重建"]
     REC --> R1["recover_committed_history"]
     REC --> R2["recover_active_txns"]
@@ -356,13 +342,11 @@ classDiagram
         +isolation : IsolationLevel
         +is_row_visible row VisFilter
     }
-
     class VisibilityContext {
         +snapshot_id : TxnId
         +commit_ts_map : HashMap
         +compaction_rewrite new context
     }
-
     class VisibilityManager {
         +committed_history : HashMap
         +active_txns : HashMap
@@ -408,7 +392,6 @@ flowchart LR
     C["insert.rs<br/>正常写入时调用"]
     D["__vis.vortex<br/>append-only 文件"]
     E["db.rs replay_wal_ops<br/>恢复时重建"]
-
     A --> B --> C --> D --> E
 ```
 
@@ -435,7 +418,6 @@ flowchart TB
     subgraph Query["k_way_merge"]
         KM["查询时三层合并"]
     end
-
     L1 <--> L2
     L2 <--> L3
     L1 --> FE
@@ -456,15 +438,12 @@ stateDiagram-v2
     EcoTuneSelect --> DoTiering
     EcoTuneSelect --> DoLazyLeveling
     EcoTuneSelect --> DoHotCold
-
     DoLeveling --> SelectGuardMerge
     DoTiering --> SelectL1Flush
     DoLazyLeveling --> SelectGuardMerge
     DoHotCold --> SelectGuardMerge
-
     SelectGuardMerge --> execute
     SelectL1Flush --> execute
-
     execute --> DoL2ToL3
     execute --> DoL1ToL2
     DoL1ToL2 --> recent_flush_cache
@@ -479,17 +458,13 @@ sequenceDiagram
     participant FLUSH as FlushEngine
     participant DELTA as DeltaLayerStack
     participant QUERY as ScanIterator
-
     Note over FLUSH,DELTA: 防止 L1 to L2 flush 期间查询丢失数据
-
     FLUSH->>DELTA: clear_recent_flush
     FLUSH->>DELTA: flush L1 to L2
     FLUSH->>DELTA: fill recent_flush 新数据
-
     QUERY->>DELTA: query_all_layers
     DELTA->>DELTA: 检查 recent_flush
     DELTA-->>QUERY: 包含 flush 后最新数据 OK
-
     FLUSH->>DELTA: clear_recent_flush
     DELTA->>FLUSH: flush_epoch++
 ```
@@ -513,7 +488,6 @@ flowchart TB
     I["删除 PK index entry"]
     J["递减 seg row count"]
     K["BloomFilter 不清理<br/>false positive 风险"]
-
     A --> B --> C --> D --> E --> F
     F -->|yes| G
     F -->|no| H --> I
@@ -530,13 +504,11 @@ flowchart LR
         U1 --> U1a["delete vis on new_seg"]
         U1 --> U1b["insert vis on new_seg"]
     end
-
     subgraph Recovery["WAL Recovery"]
         R1["OpType::Update"]
         R1 --> R2["delete_vis to old_seg"]
         R1 --> R3["insert_vis to new_seg"]
     end
-
     subgraph CDC["CDC 捕获"]
         C1["before_image delete"]
         C1 --> C2["after_image insert"]
@@ -575,7 +547,6 @@ flowchart TB
     SNAP["snapshot_id 更新<br/>= COMPACTION_SNAPSHOT_ID"]
     MAP["commit_ts_map 置空"]
     DONE["Compaction 完成"]
-
     START --> OVERLAY --> READ --> FILTER --> VISFILTER --> WRITE --> VCTX --> SNAP --> MAP --> DONE
 ```
 
@@ -592,19 +563,16 @@ flowchart TB
         T1B["CF_SEG_META"]
         T1C["seg_alias"]
     end
-
     subgraph T2["T2 推断权威 flush scan 时计算"]
         T2A["CF_ZONE"]
         T2B["CF_BF"]
         T2C["CF_LBF"]
         T2D["CF_STAT"]
     end
-
     subgraph T3["T3 缓存权威 可从 WAL 重建"]
         T3A["CF_DELTA"]
         T3B["CF_VERSIONS"]
     end
-
     subgraph T4["系统与外部"]
         T4A["CF_SYS"]
         T4B["CF_ICEBERG"]
@@ -617,19 +585,15 @@ flowchart TB
 ```mermaid
 stateDiagram-v2
     [*] --> KVOpen
-
     KVOpen --> LoadCF_PK_IDX
     KVOpen --> LoadCF_MVCC
     LoadCF_MVCC --> LoadCF_VERSIONS
-
     LoadCF_PK_IDX --> WALReplay
     LoadCF_MVCC --> WALReplay
     LoadCF_VERSIONS --> WALReplay
-
     WALReplay --> WritePK
     WALReplay --> WriteSegMeta
     WALReplay --> WriteAlias
-
     WALReplay --> CheckpointWrite
     CheckpointWrite --> KVWrite
     CheckpointWrite --> KVWrite2
@@ -645,20 +609,16 @@ stateDiagram-v2
 flowchart TD
     START["scan or point_get"]
     T1{"PointGet 查询"}
-
     T1 -->|yes| R1["DeltaStoreOnly 规则"]
     T1 -->|no| T2["Tier2 评估统计信息<br/>ZoneMap 裁剪率<br/>Delta 行数 vs Vortex 行数"]
-
     T2 --> DECIDE2{"成本比较"}
     DECIDE2 -->|Delta 远小于 Vortex| R2A["DeltaStoreOnly"]
     DECIDE2 -->|Vortex 远小于 Delta| R2B["VortexOnly"]
     DECIDE2 -->|成本接近| R2C["Merge"]
-
     R1 --> END["执行查询"]
     R2A --> END
     R2B --> END
     R2C --> END
-
     T2 --> T3["Tier3 Tree-CNN ML<br/>影子模式 记录预测"]
     T3 -->|"不参与路由"| END
 ```
@@ -673,23 +633,19 @@ classDiagram
         +tier2_decide query RouteDecision
         +tier3_decide query RouteDecision
     }
-
     class FeedbackState {
         +record_result decision actual_cost
         +get_statistics RoutingStats
     }
-
     class RouteDecision {
         <<enumeration>>
         DeltaStoreOnly
         VortexOnly
         Merge
     }
-
     class ProjectionContract {
         +assert_blocking_governance snapshot plan
     }
-
     QueryRouter ..|> RouteDecision
     FeedbackState --> QueryRouter
     QueryRouter --> ProjectionContract
@@ -706,15 +662,12 @@ flowchart TB
     A["ScanIterator new"]
     B["execution_template 规划"]
     C{"RouteDecision"}
-
     C -->|"Merge"| D["并发读取<br/>DeltaQueryLayer + VortexReader"]
     C -->|"DeltaStoreOnly"| E["仅 DeltaQueryLayer"]
     C -->|"VortexOnly"| F["仅 VortexReader"]
-
     D --> G["k_way_merge apply_deltas_to_batch"]
     E --> G
     F --> G
-
     G --> H["VisFilter is_row_visible TxnSnapshot"]
     H --> I["Rule 1-4"]
     I --> J{"visible"}
@@ -724,7 +677,6 @@ flowchart TB
     L --> M
     M --> M
     M --> N["返回 RecordBatch"]
-
     A --> B --> C
 ```
 
@@ -748,7 +700,6 @@ flowchart LR
     J["TxnSnapshot is_row_visible"]
     K["Rule 1-4"]
     L["DuckDB RecordBatch"]
-
     A --> B --> C --> D --> E --> F --> G --> H --> I --> J --> K --> L
 ```
 
@@ -764,7 +715,6 @@ flowchart LR
         V5["DuckDB RecordBatch"]
         V1 --> V2 --> V3 --> V4 --> V5
     end
-
     subgraph Scan["ScanIterator 路径"]
         S1["RockDuck scan"]
         S2["QueryRouter 路由"]
@@ -789,7 +739,6 @@ flowchart LR
         F3["FlushLevel<br/>L1 to L2 L2 to L3"]
         F4["EcoTunePolicy"]
     end
-
     subgraph Sched["CompactionScheduler compaction"]
         S1["CompactionStrategy<br/>PdtMerge SmallFileMerge<br/>QueryDriven stub"]
         S2["RewriteAction<br/>Pdt Small Guard L2L3"]
@@ -810,17 +759,14 @@ stateDiagram-v2
     Evaluating --> GuardMerge
     Evaluating --> L2ToL3
     Evaluating --> Backoff
-
     PdtMerge --> Writing
     SmallFileMerge --> Writing
     GuardMerge --> Writing
     L2ToL3 --> Writing
-
     Writing --> WALLog
     WALLog --> AliasUpdate
     AliasUpdate --> KVUpdate
     KVUpdate --> Done
-
     Backoff --> Idle
     Done --> Idle
 ```
@@ -833,17 +779,13 @@ flowchart TB
     A["AdaptiveCompactionScheduler<br/>hill climbing"]
     B["CompactionScheduler<br/>任务入队"]
     C["NonBlockingCompactor<br/>run_compaction"]
-
     C --> D["PDT Merge 读取旧 segment"]
     C --> I["SmallFileMerge 串行多个 PDT"]
     C --> J["QueryDriven stub 跳过"]
-
     D --> E["apply_deltas delta 合并"]
     E --> G["VisFilter 过滤"]
     G --> H["写入新 segment 新 seg_id"]
-
     I --> D
-
     H --> K["WAL OpType Compaction"]
     K --> L["seg_alias 更新"]
     L --> M["PK index 更新"]
@@ -868,7 +810,6 @@ flowchart TB
     CWAL["CdcWalWriter append_and_flush"]
     DONE["commit 返回 Ok"]
     WARN["log warning<br/>at-least-once 降级"]
-
     START --> P --> E
     E -->|false| SKIP
     E -->|true| PUSH --> FULL
@@ -886,7 +827,6 @@ flowchart LR
     A["Insert after image"] --> B["CdcLogEntry"]
     C["Update before + after"] --> B
     D["Delete before image"] --> B
-
     B --> E["CdcLogBuffer 内存缓冲"]
     E --> F["CdcWalWriter 持久化"]
     F --> G["ChangeStream 事件流"]
@@ -906,10 +846,8 @@ flowchart TB
     C["Parquet 写入<br/>parquet_format.rs"]
     D["ORC 写入 TODO"]
     E["VortexWriter scaffolded"]
-
     C --> F["iceberg translate to spec"]
     E --> F
-
     F --> G["Iceberg Manifest"]
     F --> H["Iceberg Metadata"]
     G --> I["S3 HDFS"]
@@ -931,7 +869,6 @@ flowchart TB
     PANIC["panic 硬性边界"]
     CONTINUE["继续执行"]
     Q["Query 执行"]
-
     A --> C
     B --> C
     C --> D
@@ -945,21 +882,18 @@ flowchart TB
 ```mermaid
 flowchart TD
     GOV["Governance"]
-
     GOV --> PC["ProjectionContract"]
     PC --> PC1["assert_blocking_governance"]
     PC --> PC2["EvidenceSnapshot"]
     PC --> PC3["SidecarEvidenceSnapshot"]
-
-    GOV --> CX["Cross-Cutting"]
+    GOV --> CX["CrossCutting"]
     CX --> C1["query routing mod.rs"]
     CX --> C2["query vtab_quack.rs"]
     CX --> C3["metadata projection.rs"]
-
-    GOV --> EH["Evidence Hook"]
-    EH --> E1["硬编码字符串"]
-    EH --> E2["非运行时验证"]
-    EH --> E3["Hint layer 非强制"]
+    GOV --> EH["EvidenceHook"]
+    EH --> E1["hard-coded string"]
+    EH --> E2["non-runtime validation"]
+    EH --> E3["hint layer, non-blocking"]
 
 ---
 
@@ -973,39 +907,33 @@ flowchart TB
         ERROR["error 错误"]
         KV["KV Engine mace-kv"]
     end
-
     subgraph PERSIST["持久化层"]
         WAL["durability_wal WAL Writer"]
         WALREC["wal_recovery WAL Recovery"]
         CHECK["checkpoint Checkpoint"]
     end
-
     subgraph MVCC["事务层"]
         VIS["mvcc visibility<br/>VisibilityManager"]
         SNAP["TxnSnapshot"]
         SHADOW["shadow_columns<br/>Shadow Column"]
     end
-
     subgraph WRITE["写入层"]
         INSERT["insert 数据写入"]
         VISFILE["vis_file VisFileWriter"]
         GROUP["group_commit"]
         HEAT["heat_tracker"]
     end
-
     subgraph STORAGE["存储层"]
         DELTA["DeltaLayerStack L1 L2 L3"]
         FLUSH["FlushEngine"]
         VORTEX["Vortex 列式"]
         FM["FileManager"]
     end
-
     subgraph SEGMENT["Segment"]
         LAYOUT["SegmentLayout"]
         OVERLAY["SegmentOverlay"]
         META["SegmentMeta"]
     end
-
     subgraph QUERY["查询层"]
         ROUTE["QueryRouter"]
         SCAN["ScanIterator"]
@@ -1013,87 +941,69 @@ flowchart TB
         VTAB["vtab_quack"]
         TIME["time_travel"]
     end
-
     subgraph MAINT["维护层"]
         COMP["CompactionScheduler"]
         NONBLOCK["NonBlockingCompactor"]
         ADAPT["AdaptiveCompactionScheduler"]
     end
-
     subgraph CDCEX["CDC层"]
         CDCLOG["cdc log"]
         CDCSTREAM["cdc stream"]
         DEBEZIUM["debezium"]
     end
-
     subgraph ICEX["Iceberg"]
         ICE["iceberg export"]
     end
-
     DB["db 根协调"] --> CODEC
     DB --> CONFIG
     DB --> ERROR
     DB --> KV
-
     DB --> WAL
     WAL --> CODEC
     WAL --> CHECK
-
     WALREC --> WAL
     WALREC --> CODEC
     WALREC --> INSERT
     WALREC --> VIS
     WALREC --> DELTA
     WALREC --> KV
-
     CHECK --> KV
     CHECK --> VIS
-
     INSERT --> CODEC
     INSERT --> LAYOUT
     INSERT --> VORTEX
     INSERT --> VISFILE
     INSERT --> KV
     INSERT --> DELTA
-
     VISFILE --> CODEC
     VISFILE --> SHADOW
-
     DELTA --> FLUSH
     DELTA --> KV
-
     FLUSH --> DELTA
     FLUSH --> HEAT
-
     ROUTE --> KV
     ROUTE --> DELTA
     ROUTE --> META
-
     SCAN --> DELTA
     SCAN --> VORTEX
     SCAN --> VIS
     SCAN --> FM
     SCAN --> ROUTE
     SCAN --> OVERLAY
-
     POINT --> DELTA
     POINT --> VIS
     POINT --> FM
-
     VTAB --> VIS
     VTAB --> VORTEX
     VTAB --> META
     VTAB --> DB
-
     COMP --> ADAPT
     COMP --> NONBLOCK
     NONBLOCK --> DELTA
     NONBLOCK --> INSERT
-
     CDCLOG --> WAL
     CDCLOG --> CODEC
     CDCSTREAM --> DEBEZIUM
-
     ICE --> VORTEX
     ICE --> CODEC
 ```
